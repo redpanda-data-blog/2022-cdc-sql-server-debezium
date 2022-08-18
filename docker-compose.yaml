@@ -1,0 +1,50 @@
+version: '2'
+services:
+  redpanda:
+    image: vectorized/redpanda:v21.11.15
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    command:
+      - redpanda
+      - start
+      - --overprovisioned
+      - --smp
+      - "1"
+      - --memory
+      - "1G"
+      - --reserve-memory
+      - "0M"
+      - --node-id
+      - "0"
+      - --kafka-addr
+      - PLAINTEXT://0.0.0.0:29092,OUTSIDE://0.0.0.0:9092
+      - --advertise-kafka-addr
+      - PLAINTEXT://redpanda:29092,OUTSIDE://redpanda:9092
+      - --check=false
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2019-latest
+    ports:
+     - 1433:1433
+    environment:
+     - ACCEPT_EULA=Y
+     - MSSQL_PID=Standard
+     - SA_PASSWORD=Password!
+     - MSSQL_AGENT_ENABLED=true
+  connect:
+    image: quay.io/debezium/connect:1.9
+    ports:
+     - 8083:8083
+    links:
+     - redpanda
+     - sqlserver
+    environment:
+     - BOOTSTRAP_SERVERS=redpanda:9092
+     - GROUP_ID=1
+     - CONFIG_STORAGE_TOPIC=redpanda_connect_configs
+     - OFFSET_STORAGE_TOPIC=redpanda_connect_offsets
+     - STATUS_STORAGE_TOPIC=redpanda_connect_statuses
+# For testing newer connector versions, unpack the connector archive into this
+# directory and uncomment the lines below
+#    volumes:
+#     - ./debezium-connector-sqlserver:/kafka/connect/debezium-connector-sqlserver
